@@ -8,21 +8,50 @@ P = 8   #population size
 I = 12  #initial position
 SEED = list(range(0, (N**2)))
 
-# Class Organismo
-class Organism():
+# Class chromosomeso
+class Chromosomes():
 
-    # Create Random Organism
+    # Create Random chromosomes
     def __init__(self):
         tmp = SEED.copy()
         random.shuffle(tmp)
-        self.org = move_initial(tmp)
-        self.valids = count_valids(self.org)
+        self.chromo = move_initial(tmp)
+        self.set_valids()
 
+    # Clone chromossome
     def clone(self):
-        new_org = Organism()
-        new_org.org = self.org.copy()
+        new_org = Chromosomes()
+        new_org.chromo = self.chromo.copy()
         new_org.valids = self.valids
         return new_org
+
+    # count valid position
+    def set_valids(self):
+        count = 0
+        for i in range(0, (N**2)-1):
+            if(is_valid(self.chromo[i], self.chromo[i+1])):
+                count += 1
+        self.valids = count
+
+    # Correct chromossome after reproduction
+    def correct(self):
+        count = [0]*(N**2)
+        for position in self.chromo:
+            count[position] += 1
+        i = 0
+        for c in count:
+            if c == 2:
+                self.chromo.remove(i)
+            if c == 0:
+                self.chromo.append(i)
+            i += 1
+        self.chromo = move_initial(self.chromo)
+
+        
+
+    def __str__(self):
+        return f'Genes: {self.chromo} | Valids: {self.valids}'
+        
 
 
 # Initialization
@@ -31,7 +60,7 @@ def initialize():
     population = []
 
     for i in range (0, P):
-        tmp = Organism()
+        tmp = Chromosomes()
         population.append(tmp)
 
     return population
@@ -41,9 +70,9 @@ def random_selection(population):
     proportional_population = []
 
     # proportional population
-    for organism in population:
-        for i in range(0, organism.valids):
-            tmp = organism.clone()
+    for chromosome in population:
+        for i in range(0, chromosome.valids):
+            tmp = chromosome.clone()
             proportional_population.append(tmp)
 
     # shuffle proportional population
@@ -57,13 +86,64 @@ def random_selection(population):
     return new_population
 
 def elitist_selection(population):
-    pass
+    sorted_population = sorted(population, key = lambda ch : ch.valids)
+
+    for i in range(0, P//8):
+        sorted_population.pop(0)
+
+    for i in range(0, P//8):
+        sorted_population.append(sorted_population[len(sorted_population)-1 - (i*2)])
+    
+    return sorted_population
+
+# Reproduction
+def fixed_point_crossover(population):
+    new_population = population.copy()
+    random.shuffle(new_population)
+
+    for i in range(0, P, 2):
+        crossover(new_population[i].chromo, new_population[i+1].chromo, (N**2)//2)
+
+    for chromosome in new_population:
+        chromosome.correct()
+        chromosome.set_valids()
+
+    return new_population
 
 
+def random_point_crossover(population):
+    new_population = population.copy()
+    random.shuffle(new_population)
 
+    x = random.randint(0, (N**2)-1)
+    for i in range(0, P, 2):
+        crossover(new_population[i].chromo, new_population[i+1].chromo, x)
 
+    for chromosome in new_population:
+        chromosome.correct()
+        chromosome.set_valids()
+
+    return new_population
+
+# Mutation
+def mutation(population):
+    for chromossome in population:
+        x = random.randint(0, (N**2)-1)
+        y = random.randint(0, (N**2)-1)
+        tmp = chromossome.chromo[x]
+        chromossome.chromo[x] = chromossome.chromo[y]
+        chromossome.chromo[y] = tmp
+        chromossome.correct()
+        chromossome.set_valids()
 
 # Auxiliary Functions
+# crossover 2 chromossomes using on point x
+def crossover(c1, c2, x):
+    for i in range(0,x):
+        tmp = c1[i]
+        c1[i] = c2[i]
+        c2[i] = tmp
+
 # move initial position to front
 def move_initial(p):
     p.remove(I)
@@ -99,19 +179,43 @@ def is_valid(i, j):
         return True
     return False
 
-# count valid position
-def count_valids(p):
-    count = 0
-    for i in range(0, (N**2)-1):
-        if(is_valid(p[i], p[i+1])):
-            count += 1
-    return count
+# check optimal solution
+def check_optimal(population):
+    for chromossome in population:
+        if (chromossome.valids == (N**2)-1):
+            return True
 
+    return False
 
-a = initialize()
-for organism in a:
-    print(organism.org, organism.valids)
-print()
-b = random_selection(a)
-for organism in b:
-    print(organism.org, organism.valids)
+# Main
+if __name__ == "__main__":
+
+    # Initialization
+    pop = initialize()
+
+    iterations = 10000
+    found_optimal_solution = False
+
+    while(iterations>0 and not found_optimal_solution):
+        # Selection
+        pop = random_selection(pop)
+            # or
+#         pop = elitist_selection(pop)
+
+        # Reproduction
+ #       pop = fixed_point_crossover(pop)
+            # or
+        pop = random_point_crossover(pop)
+
+        # Mutation
+        mutation(pop)
+
+        # Check for Optimal solution
+        found_optimal_solution = check_optimal(pop)
+
+        iterations -= 1
+
+    # show final population
+    for chromossome in pop:
+        print(chromossome)
+    
